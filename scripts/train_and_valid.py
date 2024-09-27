@@ -184,15 +184,14 @@ def fit_one_cycle(network,
             batch_total_predictions_rule = 0
             batch_total_predictions_action = 0
             batch_total_predictions_angle = 0
+        # if idx_batch == 200:
+        #     torch.save(network.state_dict(), saving_name)  # why do i need state_dict()?
+        #     print(f'save {saving_name}')
 
     if verbose > 0:
         epoch_accuracy_rule = correct_predictions_rule / total_predictions_rule
         epoch_accuracy_action = correct_predictions_action / total_predictions_action
         epoch_accuracy_angle = correct_predictions_angle / total_predictions_angle
-
-        print(f"Epoch {idx_epoch + 1} Rule Accuracy: {epoch_accuracy_rule:.4f}")
-        print(f"Epoch {idx_epoch + 1} Action Accuracy: {epoch_accuracy_action:.4f}")
-        print(f"Epoch {idx_epoch + 1} Angle Accuracy: {epoch_accuracy_angle:.4f}")
 
     return network, loss / (idx_batch + 1)
 
@@ -296,7 +295,7 @@ if __name__ == "__main__":
     # 图形参数
     image_resize = 128
     lamda = 8
-    batch_size = 4
+    batch_size = 2
     shuffle = False  # 注意设置！！！
     num_workers = 2  # 指定用于数据加载的子进程数
     image_channel = 1
@@ -309,7 +308,7 @@ if __name__ == "__main__":
     high_noise = 2e-1
     noise_probability = 0
     n_noise = 0
-    sequence_length = 1000
+    sequence_length = 200
 
     # 模型参数
     model_name = "rnn"
@@ -319,7 +318,7 @@ if __name__ == "__main__":
     right_now = time.localtime()
 
     learning_rate = 1e-4
-    l2_decay = 1e-8
+    l2_decay = 1e-4
     n_epochs = 1000
     patience = 5
     warmup_epochs = 2
@@ -327,15 +326,15 @@ if __name__ == "__main__":
     saving_name = os.path.join(model_dir,
                                f'{right_now.tm_year}_{right_now.tm_mon}_{right_now.tm_mday}_{right_now.tm_hour}_{right_now.tm_min}_{model_name}.h5')
     input_size = 2 * image_resize * image_resize
-    hidden_size = 2048
-    num_layers = 5
+    hidden_size = 128
+    num_layers = 1
     verbose = 1
 
     # load dataframes
     data_dir = "../data/type1_stimuli"
-    df_train = pd.read_csv(os.path.join(data_dir, "df_train_32.csv"))
-    df_valid = pd.read_csv(os.path.join(data_dir, 'df_valid_32.csv'))
-    df_test = pd.read_csv(os.path.join(data_dir, 'df_test_32.csv'))
+    df_train = pd.read_csv(os.path.join(data_dir, "df_train_3200.csv"))
+    df_valid = pd.read_csv(os.path.join(data_dir, 'df_valid_320.csv'))
+    df_test = pd.read_csv(os.path.join(data_dir, 'df_test_5000.csv'))
 
     # build dataloaders
     arg_dataloader = dict(image_resize=image_resize,
@@ -365,6 +364,8 @@ if __name__ == "__main__":
                              activation_func_name=activation_func_name,
                              batch_first=True,
                              image_channel=image_channel, )
+    # network.load_state_dict(torch.load('../models/2024_9_27_17_51_rnn.h5'))
+    # network.eval()
 
     # 定义优化器和损失函数
     optimizer = torch.optim.Adam(params=network.parameters(),

@@ -120,56 +120,58 @@ class gabor_image_dataset(Dataset):
 
     def __len__(self, ):
         # 有重叠
-        return len(self.dataframe)
+        return len(self.dataframe) - self.sequence_length + 1
 
     def __getitem__(self, index):
-        rule = self.rule[index: index + self.sequence_length]
-        first_image = self.first_image[index: index + self.sequence_length]
-        second_image = self.second_image[index: index + self.sequence_length]
-        correct_answer = self.correct_answer[index: index + self.sequence_length]
-        action = self.action[index: index + self.sequence_length]
+        # 确保索引在范围内
+        if index + self.sequence_length > len(self.dataframe):
+            return None
+        else:
+            rule = self.rule[index: index + self.sequence_length]
+            first_image = self.first_image[index: index + self.sequence_length]
+            second_image = self.second_image[index: index + self.sequence_length]
+            correct_answer = self.correct_answer[index: index + self.sequence_length]
+            action = self.action[index: index + self.sequence_length]
 
-        first_image_list = []
-        second_image_list = []
-        for fi in first_image:
-            fi = make_gabor_patch(orientation=fi,
-                                  size=self.image_resize, )
-            fi = self.transform_steps(fi)
-            first_image_list.append(fi)
-        for si in second_image:
-            si = make_gabor_patch(orientation=si,
-                                  size=self.image_resize, )
-            si = self.transform_steps(si)
-            second_image_list.append(si)
-        first_image_list = torch.stack(first_image_list)
-        second_image_list = torch.stack(second_image_list)
+            first_image_list = []
+            second_image_list = []
+            for fi in first_image:
+                fi = make_gabor_patch(orientation=fi, size=self.image_resize)
+                fi = self.transform_steps(fi)
+                first_image_list.append(fi)
+            for si in second_image:
+                si = make_gabor_patch(orientation=si, size=self.image_resize)
+                si = self.transform_steps(si)
+                second_image_list.append(si)
+            first_image_list = torch.stack(first_image_list)
+            second_image_list = torch.stack(second_image_list)
 
-        # 将 rule 转换为相应的标签
-        rule_true_label = []
-        for r in rule:
-            if r == 0:
-                rule_true_label.append([1, 0])  # 0 转换为 [1, 0]
-            elif r == 1:
-                rule_true_label.append([0, 1])  # 1 转换为 [0, 1]
-        rule_true_label = torch.FloatTensor(rule_true_label)
+            # 将 rule 转换为相应的标签
+            rule_true_label = []
+            for r in rule:
+                if r == 0:
+                    rule_true_label.append([1, 0])
+                elif r == 1:
+                    rule_true_label.append([0, 1])
+            rule_true_label = torch.FloatTensor(rule_true_label)
 
-        angle_true_label = []
-        for ans in correct_answer:
-            if ans == 0:
-                angle_true_label.append([1, 0])
-            elif ans == 1:
-                angle_true_label.append(([0, 1]))
-        angle_true_label = torch.FloatTensor(angle_true_label)
+            angle_true_label = []
+            for ans in correct_answer:
+                if ans == 0:
+                    angle_true_label.append([1, 0])
+                elif ans == 1:
+                    angle_true_label.append([0, 1])
+            angle_true_label = torch.FloatTensor(angle_true_label)
 
-        action_true_label = []
-        for a in action:
-            if a == 0:
-                action_true_label.append([1, 0])
-            elif a == 1:
-                action_true_label.append([0, 1])
-        action_true_label = torch.FloatTensor(action_true_label)
+            action_true_label = []
+            for a in action:
+                if a == 0:
+                    action_true_label.append([1, 0])
+                elif a == 1:
+                    action_true_label.append([0, 1])
+            action_true_label = torch.FloatTensor(action_true_label)
 
-        return first_image_list, second_image_list, angle_true_label, rule_true_label, action_true_label
+            return first_image_list, second_image_list, angle_true_label, rule_true_label, action_true_label
 
 
 def build_gabor_image_dataloader(df: pd.core.frame.DataFrame,
@@ -329,63 +331,76 @@ def generate_dataframe(most_left: int = -45,
 
 
 if __name__ == "__main__":
-    # np.random.seed(12345)
-    # torch.manual_seed(12345)
-    # # generate sequence of trials
-    # n_trials = int(3e3)
-    #
-    # # training set
-    # df_train = generate_dataframe(n_trials=3200,
-    #                               most_left=-45,
-    #                               most_right=45,
-    #                               break_point=None,
-    #                               image_B_range=45,
-    #                               )
-    # # validation set - determine when to stop training
-    # df_valid = generate_dataframe(n_trials=3200,
-    #                               most_left=-45,
-    #                               most_right=45,
-    #                               break_point=None,
-    #                               image_B_range=45,
-    #                               )
-    # # testing set - should the same/similar to the experiment
-    # df_test = generate_dataframe(most_left=-20,
-    #                              most_right=20,
-    #                              image_B_range=45,
-    #                              n_trials=int(6400),
-    #                              break_point=None,
-    #                              testset=True,
-    #                              )
     data_dir = '../data/type1_stimuli'
     if not os.path.exists(data_dir):
         os.mkdir(data_dir)
-    # df_train.to_csv(os.path.join(data_dir, 'df_train_32.csv'), index=False)
-    # df_valid.to_csv(os.path.join(data_dir, 'df_valid_32.csv'), index=False)
-    # df_test.to_csv(os.path.join(data_dir, 'df_test_32.csv'), index=False)
 
-    image_resize = 128
-    lamda = 8
-    batch_size = 1
-    shuffle = False  # 注意设置！！！
-    num_workers = 2  # 指定用于数据加载的子进程数
-    image_channel = 1
-    transform_steps = concatenate_transform_steps(image_resize=image_resize,
-                                                  noise_level=0,
-                                                  flip=False,
-                                                  rotate=0,
-                                                  num_output_channels=image_channel, )
+    np.random.seed(12345)
+    torch.manual_seed(12345)
+    # generate sequence of trials
+    n_trials = int(3e3)
 
-    df_train = pd.read_csv(os.path.join(data_dir, "df_train_32.csv"))
+    # training set
+    df_train = generate_dataframe(n_trials=5000,
+                                  most_left=-45,
+                                  most_right=45,
+                                  break_point=None,
+                                  image_B_range=45,
+                                  )
+    # validation set - determine when to stop training
+    df_valid = generate_dataframe(n_trials=5000,
+                                  most_left=-45,
+                                  most_right=45,
+                                  break_point=None,
+                                  image_B_range=45,
+                                  )
+    # testing set - should the same/similar to the experiment
+    df_test = generate_dataframe(most_left=-20,
+                                 most_right=20,
+                                 image_B_range=45,
+                                 n_trials=int(5000),
+                                 break_point=None,
+                                 testset=True,
+                                 )
+    df_train.to_csv(os.path.join(data_dir, 'df_train_5000.csv'), index=False)
+    df_valid.to_csv(os.path.join(data_dir, 'df_valid_5000.csv'), index=False)
+    df_test.to_csv(os.path.join(data_dir, 'df_test_5000.csv'), index=False)
 
-    dataloader_train = build_gabor_image_dataloader(df=df_train,
-                                                    image_resize=image_resize,
-                                                    transform_steps=transform_steps,
-                                                    shuffle=False,
-                                                    batch_size=batch_size
-                                                    )
 
-    count = 0
-    for first_image_list, second_image_list, angle_true_label, rule_true_label, action_true_label in dataloader_train:
-        count += 1
-        print("count: ", count)
+
+
+    # image_resize = 128
+    # lamda = 8
+    # batch_size = 1
+    # shuffle = False  # 注意设置！！！
+    # num_workers = 2  # 指定用于数据加载的子进程数
+    # image_channel = 1
+    # sequence_length = 7
+    # transform_steps = concatenate_transform_steps(image_resize=image_resize,
+    #                                               noise_level=0,
+    #                                               flip=False,
+    #                                               rotate=0,
+    #                                               num_output_channels=image_channel, )
+    #
+    # df_train = pd.read_csv(os.path.join(data_dir, "df_train_32.csv"))
+    #
+    # dataloader_train = build_gabor_image_dataloader(df=df_train,
+    #                                                 image_resize=image_resize,
+    #                                                 transform_steps=transform_steps,
+    #                                                 shuffle=False,
+    #                                                 batch_size=batch_size,
+    #                                                 sequence_length=sequence_length, )
+
+    # dataset = gabor_image_dataset(dataframe=df_train,
+    #                               image_resize=image_resize,
+    #                               transform_steps=transform_steps,
+    #                               lamda=lamda,
+    #                               sequence_length=sequence_length,
+    #                               )
+    # print(dataset.__len__())
+
+    # count = 0
+    # for first_image_list, second_image_list, angle_true_label, rule_true_label, action_true_label in dataloader_train:
+    #     count += 1
+    #     print("count: ", count)
 
