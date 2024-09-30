@@ -118,9 +118,11 @@ class perceptual_net(nn.Module):
         self.fc_zoomin_rule = nn.Sequential(nn.Linear(in_features=2,
                                                       out_features=1024, )).to(self.device)
 
-    def forward(self, image_input):
+    def forward(self, image_input, rule_input):
+        rule_input = self.fc_zoomin_rule(rule_input)
+        concatenated_input = torch.cat((image_input, rule_input), dim=2)
 
-        out, _ = self.model(image_input)  # out: (batch_size, time_length, hidden_size)
+        out, _ = self.model(concatenated_input)  # out: (batch_size, time_length, hidden_size)
         # out = out[:, -1, :]  # 获取最后一个时间步的数据即可
 
         # 输出
@@ -133,12 +135,11 @@ class perceptual_net(nn.Module):
 
 if __name__ == "__main__":
     rnn = perceptual_net()
-    x = torch.rand(8, 1, 128, 128)
-    y = torch.rand(8, 1, 128, 128)
+    x = torch.rand(8, 100, 128, 128)
+    y = torch.rand(8, 100, 128, 128)
+    rule = torch.rand(8, 100, 2)
 
     combined = torch.cat((x, y), dim=1)  # combined: (8, 2, 224, 224)
-    rnn_input = combined.view(combined.size(0), 1, -1)  # rnn_input: (8, 1, 2*224*224)
+    rnn_input = combined.view(combined.size(0), 100, -1)  # rnn_input: (8, 1, 2*224*224)
 
-    rule_pre, angle_pre, out = rnn(rnn_input)
-    print("rule_pre: ", rule_pre)
-    print("angle_pre: ", angle_pre)
+    _, out = rnn(rnn_input, rule)

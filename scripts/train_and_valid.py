@@ -81,6 +81,16 @@ def fit_one_cycle(network,
     iterator = tqdm(enumerate(dataloader))
     for idx_batch, (first_image_list, second_image_list, angle_true_label, rule_true_label, action_true_label) in iterator:
 
+        new_rule_label = torch.zeros_like(rule_true_label)
+
+        # 遍历每个batch
+        for i in range(rule_true_label.shape[0]):
+            # 设置每个batch的第一个序列元素为 [0, 1]
+            new_rule_label[i, 0, :] = torch.tensor([0, 1])
+
+            # 移动剩余的元素，原始序列的第 n 个元素移动到新序列的第 n-1 个位置
+            new_rule_label[i, 1:, :] = rule_true_label[i, :-1, :]
+
         if train and np.random.randn() < noise_probability:  # 50%的概率给图片加噪音
             # TODO
             pass
@@ -101,10 +111,8 @@ def fit_one_cycle(network,
         optimizer.zero_grad()
 
         # 模型向前传播
-        rule_pre, action_pre, angle_pre, out = network(rnn_input.to(device))
-        # print("rule_pre: ", rule_pre)
-        # print("action_pre: ", action_pre)
-        # print("============================")
+        rule_pre, action_pre, angle_pre, out = network(rnn_input.to(device), new_rule_label.to(device))
+
         # 计算损失
         rule_loss = loss_func(rule_pre.float().to(device),
                               rule_true_label.float().to(device), )
@@ -295,7 +303,7 @@ if __name__ == "__main__":
     # 图形参数
     image_resize = 128
     lamda = 8
-    batch_size = 2
+    batch_size = 1
     shuffle = False  # 注意设置！！！
     num_workers = 2  # 指定用于数据加载的子进程数
     image_channel = 1
@@ -308,7 +316,7 @@ if __name__ == "__main__":
     high_noise = 2e-1
     noise_probability = 0
     n_noise = 0
-    sequence_length = 200
+    sequence_length = 100
 
     # 模型参数
     model_name = "rnn"
@@ -325,14 +333,14 @@ if __name__ == "__main__":
     tol = 1e-4
     saving_name = os.path.join(model_dir,
                                f'{right_now.tm_year}_{right_now.tm_mon}_{right_now.tm_mday}_{right_now.tm_hour}_{right_now.tm_min}_{model_name}.h5')
-    input_size = 2 * image_resize * image_resize
-    hidden_size = 128
+    input_size = 2 * image_resize * image_resize + 1024
+    hidden_size = 64
     num_layers = 1
     verbose = 1
 
     # load dataframes
     data_dir = "../data/type1_stimuli"
-    df_train = pd.read_csv(os.path.join(data_dir, "df_train_3200.csv"))
+    df_train = pd.read_csv(os.path.join(data_dir, "df_train_320.csv"))
     df_valid = pd.read_csv(os.path.join(data_dir, 'df_valid_320.csv'))
     df_test = pd.read_csv(os.path.join(data_dir, 'df_test_5000.csv'))
 
